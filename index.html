@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geometry Dash | Level 1</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+        body {
+            background: #050000;
+            color: #ffffff;
+            font-family: 'Impact', 'Arial Black', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #start-screen {
+            text-align: center;
+            z-index: 10;
+        }
+        h1 {
+            font-size: 4rem;
+            color: #ff0000;
+            text-shadow: 0 0 20px #ff0000, 0 0 40px #3a0000;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            font-family: 'Segoe UI', sans-serif;
+            color: #8a8282;
+            margin-bottom: 30px;
+            font-size: 1.2rem;
+        }
+        button {
+            padding: 20px 50px;
+            font-size: 1.8rem;
+            font-family: 'Impact', sans-serif;
+            background: linear-gradient(45deg, #ff0000, #5a0000);
+            color: white;
+            border: 2px solid #ff0000;
+            border-radius: 5px;
+            cursor: pointer;
+            box-shadow: 0 0 25px rgba(255, 0, 0, 0.7);
+            transition: all 0.2s;
+            letter-spacing: 1px;
+        }
+        button:hover {
+            transform: scale(1.1) rotate(-2deg);
+            box-shadow: 0 0 45px #ff0000;
+        }
+        #game-container {
+            display: none;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        canvas {
+            background: linear-gradient(180deg, #050000 0%, #1a0000 100%);
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 2.5rem;
+            color: #ff0000;
+            text-shadow: 0 0 10px #ff0000;
+            z-index: 5;
+            pointer-events: none;
+        }
+        #prank-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            z-index: 9999;
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1>Geometry Dash | Level 1 | Easy</h1>
+        <p class="subtitle">Ugord át az akadályokat (háromszögek) és gyűjts minnél több pontot</p>
+        <button id="start-btn">JÁTÉK...</button>
+    </div>
+
+    <div id="game-container">
+        <div id="ui">SCORE: <span id="score">0</span></div>
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="prank-container">
+        <video id="rick-video" src="video.mp4" controls loop></video>
+    </div>
+
+    <audio id="bg-music" src="zene.mp3" loop></audio>
+
+    <script>
+        const startBtn = document.getElementById('start-btn');
+        const startScreen = document.getElementById('start-screen');
+        const gameContainer = document.getElementById('game-container');
+        const prankContainer = document.getElementById('prank-container');
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const bgMusic = document.getElementById('bg-music');
+        const rickVideo = document.getElementById('rick-video');
+        const scoreDisplay = document.getElementById('score');
+        
+        let score = 0;
+        let gameLoopInterval;
+        let startTime;
+        
+        let groundY;
+        let currentGroundY; 
+        
+        let dino = {
+            x: 100,
+            y: 0,
+            width: 45,
+            height: 45,
+            vy: 0,
+            gravity: 1.2,
+            jumpForce: -18,
+            isJumping: false
+        };
+        
+        let obstacles = [];
+        let platforms = [];
+        let obstacleSpeed = 8;
+        let nextObstacleTime = 0;
+        
+ 
+        let triggeredEvents = { 10: false, 15: false, 20: false };
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            groundY = canvas.height - 150;
+            if (!dino.isJumping && platforms.length === 0) {
+                currentGroundY = groundY;
+                dino.y = currentGroundY - dino.height;
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') jump();
+        });
+        window.addEventListener('mousedown', jump);
+
+        function jump() {
+            if (!dino.isJumping && gameContainer.style.display === 'block') {
+                dino.vy = dino.jumpForce;
+                dino.isJumping = true;
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            startScreen.style.display = 'none';
+            gameContainer.style.display = 'block';
+            resizeCanvas();
+            
+            currentGroundY = groundY;
+            dino.y = currentGroundY - dino.height;
+            bgMusic.play().catch(e => console.log(e));
+            
+            startTime = Date.now();
+            gameLoopInterval = setInterval(update, 1000 / 60);
+            
+            setTimeout(triggerRickroll, 30000);
+        });
+
+
+        function spawnHighPlatform() {
+            platforms.push({
+                x: canvas.width,
+                y: groundY - 120, 
+                width: 600,       
+                height: 20
+            });
+        }
+
+        function update() {
+            score++;
+            scoreDisplay.textContent = score;
+            
+            let elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+
+            if ((elapsedSeconds === 10 || elapsedSeconds === 15 || elapsedSeconds === 20) && !triggeredEvents[elapsedSeconds]) {
+                spawnHighPlatform();
+                triggeredEvents[elapsedSeconds] = true;
+            }
+
+
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(canvas.width, groundY);
+            ctx.stroke();
+            
+
+            let onPlatform = false;
+            currentGroundY = groundY;
+
+
+            platforms.forEach((plat, index) => {
+                plat.x -= obstacleSpeed;
+                
+                ctx.fillStyle = '#ff0000';
+                ctx.shadowColor = '#ff0000';
+                ctx.shadowBlur = 10;
+                ctx.fillRect(plat.x, plat.y, plat.width, plat.height);
+                ctx.shadowBlur = 0;
+
+
+                if (dino.x + dino.width > plat.x && dino.x < plat.x + plat.width) {
+
+                    if (dino.y + dino.height <= plat.y + 15 && dino.vy >= 0) {
+                        currentGroundY = plat.y;
+                        onPlatform = true;
+                    } else if (dino.y + dino.height > plat.y && dino.y < plat.y + plat.height && dino.vy < 0) {
+ 
+                        dino.y = plat.y - dino.height;
+                        dino.vy = 0;
+                        currentGroundY = plat.y;
+                        onPlatform = true;
+                    }
+                }
+
+                if (plat.x + plat.width < 0) platforms.splice(index, 1);
+            });
+            
+
+            dino.vy += dino.gravity;
+            dino.y += dino.vy;
+            
+
+            if (dino.y >= currentGroundY - dino.height) {
+                dino.y = currentGroundY - dino.height;
+                dino.vy = 0;
+                dino.isJumping = false;
+            }
+            
+
+            ctx.fillStyle = '#ff0000';
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 15;
+            ctx.fillRect(dino.x, dino.y, dino.width, dino.height);
+            ctx.shadowBlur = 0;
+            
+
+            if (Date.now() > nextObstacleTime) {
+                let obstacleHeight = 35 + Math.random() * 25;
+
+                let spawnY = groundY;
+                if (platforms.length > 0 && platforms[0].x < canvas.width && platforms[0].x + platforms[0].width > canvas.width - 200) {
+                    spawnY = Math.random() > 0.5 ? groundY : groundY - 120;
+                }
+
+                obstacles.push({
+                    x: canvas.width,
+                    y: spawnY - obstacleHeight,
+                    width: 25,
+                    height: obstacleHeight
+                });
+                
+                obstacleSpeed = 8 + (score / 350);
+                nextObstacleTime = Date.now() + 900 + Math.random() * 1300;
+            }
+            
+
+            obstacles.forEach((obs, index) => {
+                obs.x -= obstacleSpeed;
+                
+                ctx.fillStyle = '#3a0000';
+                ctx.strokeStyle = '#ff0000';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(obs.x, obs.y + obs.height);
+                ctx.lineTo(obs.x + obs.width / 2, obs.y);
+                ctx.lineTo(obs.x + obs.width, obs.y + obs.height);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                if (obs.x < dino.x + dino.width && obs.x + obs.width > dino.x &&
+                    obs.y < dino.y + dino.height && obs.y + obs.height > dino.y) {
+                    score = Math.max(0, score - 20);
+                }
+                
+                if (obs.x < -50) obstacles.splice(index, 1);
+            });
+        }
+
+        function triggerRickroll() {
+            clearInterval(gameLoopInterval);
+            bgMusic.pause();
+            
+            gameContainer.style.display = 'none';
+            prankContainer.style.display = 'block';
+            
+            rickVideo.volume = 1.0;
+            rickVideo.play().catch(e => console.log(e));
+            
+            if (prankContainer.requestFullscreen) {
+                prankContainer.requestFullscreen();
+            }
+        }
+    </script>
+</body>
+</html>
